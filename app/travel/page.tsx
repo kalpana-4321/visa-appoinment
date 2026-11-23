@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -21,7 +21,6 @@ function TravelContent() {
 
   const country = searchParams.get("country") || "Australia";
   const visaType = searchParams.get("visaType") || "Tourist Visa";
-  const applicantName = searchParams.get("name") || "Kaladevi Rishidev";
 
   const [formData, setFormData] = useState({
     destination: country,
@@ -33,6 +32,28 @@ function TravelContent() {
     address: "124 Circular Quay, Sydney, NSW 2000",
   });
 
+  const [applicantName, setApplicantName] = useState("Kaladevi Rishidev");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gp_app_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.fullName) setApplicantName(parsed.fullName);
+        setFormData((prev) => ({
+          ...prev,
+          destination: parsed.destination || country,
+          visaCategory: parsed.visaType || visaType,
+          departureDate: parsed.departureDate || prev.departureDate,
+          returnDate: parsed.returnDate || prev.returnDate,
+          purpose: parsed.purpose || prev.purpose,
+          hotelName: parsed.hotelName || prev.hotelName,
+          address: parsed.address || prev.address,
+        }));
+      }
+    } catch {}
+  }, [country, visaType]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -42,8 +63,25 @@ function TravelContent() {
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
+
+    try {
+      const saved = localStorage.getItem("gp_app_draft");
+      const current = saved ? JSON.parse(saved) : {};
+      const updated = {
+        ...current,
+        destination: formData.destination,
+        visaType: formData.visaCategory,
+        departureDate: formData.departureDate,
+        returnDate: formData.returnDate,
+        purpose: formData.purpose,
+        hotelName: formData.hotelName,
+        hotelAddress: `${formData.hotelName}, ${formData.address}`,
+      };
+      localStorage.setItem("gp_app_draft", JSON.stringify(updated));
+    } catch {}
+
     router.push(
-      `/document?country=${encodeURIComponent(formData.destination)}&visaType=${encodeURIComponent(formData.visaCategory)}&name=${encodeURIComponent(applicantName)}`
+      `/document?country=${encodeURIComponent(formData.destination)}&visaType=${encodeURIComponent(formData.visaCategory)}`
     );
   };
 
@@ -147,7 +185,7 @@ function TravelContent() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Intended Arrival / Departure Date *
+                      Intended Arrival Date *
                     </label>
                     <div className="relative">
                       <Calendar className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />

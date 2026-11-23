@@ -2,15 +2,23 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Globe, Menu, X, Search, User, ArrowRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Globe, Menu, X, Search, User, ArrowRight, LogOut, LayoutDashboard } from "lucide-react";
 import TrackModal from "./TrackModal";
+
+interface CurrentUser {
+  id: number;
+  fullName: string;
+  email: string;
+}
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,10 +28,35 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Fetch auth session
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      })
+      .catch(() => setUser(null));
+  }, [pathname]);
+
   // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
 
   return (
     <>
@@ -90,21 +123,53 @@ export default function Navbar() {
 
           {/* Desktop Action Buttons */}
           <div className="hidden sm:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 btn-press"
-            >
-              <User className="h-4 w-4 text-slate-500" aria-hidden="true" />
-              <span>Login</span>
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-colors btn-press"
+                >
+                  <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                  <span>My Applications</span>
+                </Link>
 
-            <Link
-              href="/apply"
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 shadow-sm shadow-blue-600/20 btn-press"
-            >
-              <span>Apply Now</span>
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors btn-press cursor-pointer"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Sign Out</span>
+                </button>
+
+                <Link
+                  href="/apply"
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 shadow-sm shadow-blue-600/20 btn-press"
+                >
+                  <span>New Visa</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 btn-press"
+                >
+                  <User className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                  <span>Login</span>
+                </Link>
+
+                <Link
+                  href="/apply"
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 shadow-sm shadow-blue-600/20 btn-press"
+                >
+                  <span>Apply Now</span>
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -179,22 +244,47 @@ export default function Navbar() {
             </nav>
 
             <div className="pt-4 border-t border-slate-100 flex flex-col gap-2.5">
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 text-center font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                <User className="h-4 w-4" />
-                <span>Login</span>
-              </Link>
-              <Link
-                href="/apply"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-center font-semibold text-white hover:bg-blue-700"
-              >
-                <span>Start Application</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                    <span>My Applications</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 font-semibold text-rose-600 hover:bg-rose-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2.5 font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Login</span>
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 font-semibold text-white hover:bg-blue-700"
+                  >
+                    <span>Sign Up</span>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

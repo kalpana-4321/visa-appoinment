@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -11,11 +11,8 @@ import {
   ArrowRight,
   ArrowLeft,
   ChevronRight,
-  Calendar,
-  Globe2,
   Mail,
   Phone,
-  ShieldAlert,
 } from "lucide-react";
 
 function ApplicationContent() {
@@ -27,11 +24,11 @@ function ApplicationContent() {
 
   // Form states
   const [formData, setFormData] = useState({
-    fullName: "John Doe",
-    email: "john@example.com",
-    phone: "+977 9800000000",
+    fullName: "",
+    email: "",
+    phone: "",
     dob: "1998-05-14",
-    gender: "Male",
+    gender: "Female",
     passportNumber: "N12345678",
     nationality: "Nepali",
     passportType: "Ordinary",
@@ -40,6 +37,32 @@ function ApplicationContent() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Check if logged in & check draft
+  useEffect(() => {
+    // 1. Check logged-in user
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setFormData((prev) => ({
+            ...prev,
+            fullName: prev.fullName || data.user.fullName || "",
+            email: prev.email || data.user.email || "",
+          }));
+        }
+      })
+      .catch(() => {});
+
+    // 2. Load draft if exists
+    try {
+      const saved = localStorage.getItem("gp_app_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFormData((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch {}
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -56,7 +79,6 @@ function ApplicationContent() {
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
     const newErrors: Record<string, string> = {};
     if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
     if (!formData.email.trim()) newErrors.email = "Valid email is required";
@@ -67,8 +89,18 @@ function ApplicationContent() {
       return;
     }
 
+    // Persist to local draft for consistency across step 1, 2, and 3
+    try {
+      const draft = {
+        ...formData,
+        destination: country,
+        visaType: visaType,
+      };
+      localStorage.setItem("gp_app_draft", JSON.stringify(draft));
+    } catch {}
+
     router.push(
-      `/travel?country=${encodeURIComponent(country)}&visaType=${encodeURIComponent(visaType)}&name=${encodeURIComponent(formData.fullName)}`
+      `/travel?country=${encodeURIComponent(country)}&visaType=${encodeURIComponent(visaType)}`
     );
   };
 
@@ -91,7 +123,7 @@ function ApplicationContent() {
             <span className="font-semibold text-slate-800">Personal Information</span>
           </nav>
 
-          {/* Stepper Header - Clean, NO BADGES */}
+          {/* Stepper Header */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-5">
               <div>
@@ -107,7 +139,7 @@ function ApplicationContent() {
                 </p>
               </div>
 
-              <div className="text-right sm:text-right">
+              <div className="text-right">
                 <span className="text-xs font-semibold text-slate-500">Progress: Step 1</span>
               </div>
             </div>
@@ -137,10 +169,11 @@ function ApplicationContent() {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. Kaladevi Rishidev"
                       className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition-all ${
                         errors.fullName ? "border-rose-500 ring-2 ring-rose-100" : "border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                       }`}
+                      required
                     />
                     {errors.fullName && (
                       <p className="mt-1 text-xs text-rose-600">{errors.fullName}</p>
@@ -160,6 +193,7 @@ function ApplicationContent() {
                         onChange={handleChange}
                         placeholder="yourname@domain.com"
                         className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                        required
                       />
                     </div>
                   </div>
@@ -175,8 +209,9 @@ function ApplicationContent() {
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        placeholder="+1 555 000 0000"
+                        placeholder="+977 9800000000"
                         className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                        required
                       />
                     </div>
                   </div>
@@ -191,6 +226,7 @@ function ApplicationContent() {
                       value={formData.dob}
                       onChange={handleChange}
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                      required
                     />
                   </div>
 
@@ -231,6 +267,7 @@ function ApplicationContent() {
                       onChange={handleChange}
                       placeholder="e.g. N12345678"
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 font-mono outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all uppercase"
+                      required
                     />
                   </div>
 
@@ -263,6 +300,7 @@ function ApplicationContent() {
                       value={formData.issueDate}
                       onChange={handleChange}
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                      required
                     />
                   </div>
 
@@ -276,6 +314,7 @@ function ApplicationContent() {
                       value={formData.expiryDate}
                       onChange={handleChange}
                       className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                      required
                     />
                   </div>
                 </div>

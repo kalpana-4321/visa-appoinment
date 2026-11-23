@@ -2,22 +2,41 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Globe, ArrowLeft, Mail, CheckCircle2, ArrowRight } from "lucide-react";
+import { Globe, ArrowLeft, Mail, CheckCircle2, ArrowRight, ExternalLink } from "lucide-react";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetUrl, setResetUrl] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setLoading(true);
-    setTimeout(() => {
+    setErrorMessage("");
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setResetUrl(data.resetUrl || "");
+        setSubmitted(true);
+      } else {
+        setErrorMessage(data.error || "Failed to process request.");
+      }
+    } catch {
+      setErrorMessage("Network error. Please try again.");
+    } finally {
       setLoading(false);
-      setSubmitted(true);
-    }, 600);
+    }
   };
 
   return (
@@ -50,26 +69,46 @@ export default function ForgotPassword() {
             Reset Password
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Enter your email and we'll send you an encrypted recovery link.
+            Enter your email and we'll generate your secure reset link.
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
         <div className="bg-white py-8 px-6 shadow-sm rounded-2xl border border-slate-200 sm:px-8">
+          {errorMessage && (
+            <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-700">
+              {errorMessage}
+            </div>
+          )}
+
           {submitted ? (
             <div className="text-center py-4 space-y-4 animate-scale-in">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <CheckCircle2 className="h-6 w-6" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900">Recovery Link Sent</h2>
+              <h2 className="text-lg font-bold text-slate-900">Password Reset Link Generated</h2>
               <p className="text-xs text-slate-600 leading-relaxed">
-                If an account exists for <span className="font-semibold text-slate-800">{email}</span>, you will receive password reset instructions within 2 minutes.
+                A password reset token has been created in Neon DB for <span className="font-semibold text-slate-800">{email}</span>.
               </p>
-              <div className="pt-2">
+
+              {resetUrl && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-left space-y-2 mt-4">
+                  <p className="text-xs font-semibold text-blue-900">Click below to proceed to reset password:</p>
+                  <Link
+                    href={resetUrl}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline break-all"
+                  >
+                    <span>Proceed to Reset Password Page</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
+
+              <div className="pt-3">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors btn-press"
                 >
                   <span>Return to Sign In</span>
                   <ArrowRight className="h-4 w-4" />
@@ -100,7 +139,7 @@ export default function ForgotPassword() {
                 disabled={loading}
                 className="w-full flex justify-center items-center gap-2 rounded-xl bg-blue-600 py-3 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-all btn-press"
               >
-                {loading ? "Sending link..." : "Send Recovery Link"}
+                {loading ? "Generating link..." : "Send Reset Password Link"}
               </button>
 
               <div className="text-center pt-2">

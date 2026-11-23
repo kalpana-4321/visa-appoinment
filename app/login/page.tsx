@@ -13,7 +13,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
@@ -23,10 +23,27 @@ export default function Login() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        setErrorMessage(data.error || "Invalid credentials.");
+      }
+    } catch {
+      setErrorMessage("Network error connecting to Neon auth service.");
+    } finally {
       setIsLoading(false);
-      router.push("/apply");
-    }, 600);
+    }
   };
 
   return (

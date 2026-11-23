@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -16,93 +16,167 @@ import {
   Check,
   X,
   FileCheck2,
-  ShieldCheck,
-  AlertCircle,
   Download,
+  AlertCircle,
 } from "lucide-react";
 
-interface UploadedFile {
-  name: string;
-  size: string;
+interface UploadedDoc {
+  fileName: string;
+  fileSize: string;
+  mimeType: string;
+  documentType: string;
+  fileData?: string;
+  uploaded?: boolean;
 }
 
 function DocumentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const country = searchParams.get("country") || "Australia";
-  const visaType = searchParams.get("visaType") || "Tourist Visa";
-  const applicantName = searchParams.get("name") || "Kaladevi Rishidev";
+  const countryParam = searchParams.get("country") || "Australia";
+  const visaTypeParam = searchParams.get("visaType") || "Tourist Visa";
 
-  // Uploaded files state
-  const [passportFile, setPassportFile] = useState<UploadedFile | null>({
-    name: "Kaladevi_Rishidev_Passport.pdf",
-    size: "1.2 MB",
+  const [draft, setDraft] = useState<any>({
+    fullName: "Kaladevi Rishidev",
+    email: "kaladevi@example.com",
+    phone: "+977 9800000000",
+    dob: "1998-05-14",
+    gender: "Female",
+    passportNumber: "N12345678",
+    nationality: "Nepali",
+    destination: countryParam,
+    visaType: visaTypeParam,
+    departureDate: "2026-12-15",
+    returnDate: "2027-01-05",
+    purpose: "Holiday and family visit",
+    hotelAddress: "Grand Harbour View Hotel, Sydney",
   });
-  const [photoFile, setPhotoFile] = useState<UploadedFile | null>({
-    name: "Passport_Photo_WhiteBg.jpg",
-    size: "420 KB",
-  });
-  const [supportingFiles, setSupportingFiles] = useState<UploadedFile[]>([
-    { name: "Bank_Statement_3Months.pdf", size: "2.8 MB" },
-  ]);
+
+  const [passportDoc, setPassportDoc] = useState<UploadedDoc | null>(null);
+  const [photoDoc, setPhotoDoc] = useState<UploadedDoc | null>(null);
+  const [supportingDocs, setSupportingDocs] = useState<UploadedDoc[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [referenceId, setReferenceId] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleFileUpload = (
+  // Load draft from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("gp_app_draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setDraft((prev: any) => ({
+          ...prev,
+          ...parsed,
+          destination: parsed.destination || countryParam,
+          visaType: parsed.visaType || visaTypeParam,
+        }));
+      }
+    } catch {}
+  }, [countryParam, visaTypeParam]);
+
+  // Convert File to Base64 and upload to API
+  const processAndUploadFile = async (
+    file: File,
+    docType: "passport" | "photo" | "supporting"
+  ): Promise<UploadedDoc | null> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const sizeFormatted = file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${(file.size / 1024).toFixed(1)} KB`;
+
+        const docObj: UploadedDoc = {
+          fileName: file.name,
+          fileSize: sizeFormatted,
+          mimeType: file.type || "application/octet-stream",
+          documentType: docType,
+          fileData: base64Data,
+          uploaded: true,
+        };
+
+        resolve(docObj);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: "passport" | "photo" | "supporting"
+    docType: "passport" | "photo" | "supporting"
   ) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    const sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+    const uploaded = await processAndUploadFile(file, docType);
+    if (!uploaded) return;
 
-    if (type === "passport") {
-      setPassportFile({ name: file.name, size: sizeStr });
-    } else if (type === "photo") {
-      setPhotoFile({ name: file.name, size: sizeStr });
+    if (docType === "passport") {
+      setPassportDoc(uploaded);
+    } else if (docType === "photo") {
+      setPhotoDoc(uploaded);
     } else {
-      setSupportingFiles((prev) => [...prev, { name: file.name, size: sizeStr }]);
+      setSupportingDocs((prev) => [...prev, uploaded]);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
     setIsSubmitting(true);
 
     try {
+      const docsPayload: UploadedDoc[] = [];
+      if (passportDoc) docsPayload.push(passportDoc);
+      if (photoDoc) docsPayload.push(photoDoc);
+      supportingDocs.forEach((d) => docsPayload.push(d));
+
+      const payload = {
+        fullName: draft.fullName,
+        email: draft.email,
+        phone: draft.phone,
+        dob: draft.dob,
+        gender: draft.gender,
+        passportNumber: draft.passportNumber,
+        nationality: draft.nationality,
+        passportIssueDate: draft.issueDate,
+        passportExpiryDate: draft.expiryDate,
+        destination: draft.destination,
+        visaType: draft.visaType,
+        departureDate: draft.departureDate,
+        returnDate: draft.returnDate,
+        purpose: draft.purpose,
+        hotelAddress: draft.hotelAddress,
+        documents: docsPayload,
+      };
+
       const res = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: applicantName,
-          email: "kaladevi@example.com",
-          phone: "+977 9800000000",
-          destination: country,
-          visaType: visaType,
-          departureDate: "2026-12-15",
-          returnDate: "2027-01-05",
-          purpose: "Holiday and travel visit",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+
       if (data.success && data.referenceId) {
         setReferenceId(data.referenceId);
+        setIsSubmitted(true);
+        try {
+          localStorage.removeItem("gp_app_draft");
+        } catch {}
       } else {
-        const fallbackRef = `GP-${Math.floor(10000 + Math.random() * 90000)}`;
-        setReferenceId(fallbackRef);
+        setErrorMessage(data.error || "Failed to submit application to database.");
       }
-    } catch (err) {
-      const fallbackRef = `GP-${Math.floor(10000 + Math.random() * 90000)}`;
-      setReferenceId(fallbackRef);
+    } catch {
+      setErrorMessage("Network error connecting to Neon database. Please try again.");
     } finally {
       setIsSubmitting(false);
-      setIsSubmitted(true);
     }
   };
 
@@ -123,14 +197,14 @@ function DocumentContent() {
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
             <Link
-              href={`/application?country=${encodeURIComponent(country)}&visaType=${encodeURIComponent(visaType)}`}
+              href={`/application?country=${encodeURIComponent(draft.destination)}&visaType=${encodeURIComponent(draft.visaType)}`}
               className="hover:text-blue-600 transition-colors"
             >
               Personal Details
             </Link>
             <ChevronRight className="h-3 w-3 text-slate-400" />
             <Link
-              href={`/travel?country=${encodeURIComponent(country)}&visaType=${encodeURIComponent(visaType)}`}
+              href={`/travel?country=${encodeURIComponent(draft.destination)}&visaType=${encodeURIComponent(draft.visaType)}`}
               className="hover:text-blue-600 transition-colors"
             >
               Travel Itinerary
@@ -151,11 +225,11 @@ function DocumentContent() {
               </h1>
 
               <p className="mt-3 text-slate-600 max-w-lg mx-auto text-sm sm:text-base leading-relaxed">
-                Your visa application for <span className="font-bold text-slate-900">{country}</span> has been securely transmitted to the immigration processing queue.
+                Your visa application for <span className="font-bold text-slate-900">{draft.destination}</span> has been stored in Neon PostgreSQL and assigned to immigration processing.
               </p>
 
               {/* Reference ID box - NO BADGES */}
-              <div className="mt-8 mx-auto max-w-md rounded-xl border border-slate-200 bg-slate-50 p-6 text-left">
+              <div className="mt-8 mx-auto max-w-md rounded-xl border border-slate-200 bg-slate-50 p-6 text-left space-y-2">
                 <div className="flex justify-between items-center border-b border-slate-200/80 pb-3">
                   <span className="text-xs uppercase font-bold tracking-wider text-slate-400">
                     Application Reference ID
@@ -166,33 +240,27 @@ function DocumentContent() {
                 </div>
 
                 <div className="mt-3 space-y-1.5 text-xs text-slate-600">
-                  <p>• Applicant: <span className="font-semibold text-slate-800">{applicantName}</span></p>
-                  <p>• Destination: <span className="font-semibold text-slate-800">{country}</span> ({visaType})</p>
-                  <p>• Submission Date: <span className="font-semibold text-slate-800">Nov 23, 2026</span></p>
-                  <p>• Status: <span className="font-semibold text-emerald-700">Verification in progress</span></p>
+                  <p>• Applicant: <span className="font-semibold text-slate-800">{draft.fullName}</span></p>
+                  <p>• Destination: <span className="font-semibold text-slate-800">{draft.destination}</span> ({draft.visaType})</p>
+                  <p>• Passport Number: <span className="font-semibold text-slate-800">{draft.passportNumber}</span></p>
+                  <p>• Documents Stored: <span className="font-semibold text-emerald-700">Persisted in Neon DB</span></p>
                 </div>
               </div>
 
-              <p className="mt-6 text-xs text-slate-500 max-w-md mx-auto">
-                A confirmation receipt with your tracking link has been sent to your registered email address. You can also track this anytime on our homepage.
-              </p>
-
               <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => alert(`Receipt downloaded for reference ${referenceId}`)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors btn-press"
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors btn-press shadow-sm shadow-blue-600/20"
                 >
-                  <Download className="h-4 w-4" />
-                  <span>Download Confirmation Receipt</span>
-                </button>
+                  <span>View in My Applications</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
 
                 <Link
                   href="/"
-                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors btn-press shadow-sm shadow-blue-600/20"
+                  className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors btn-press"
                 >
                   <span>Return to Homepage</span>
-                  <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -208,7 +276,7 @@ function DocumentContent() {
                     Document Upload & Final Review
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
-                    Upload legible color copies of your travel documents.
+                    Upload your passport page and photo to attach to your Neon application record.
                   </p>
                 </div>
 
@@ -224,6 +292,13 @@ function DocumentContent() {
                 <div className="h-2 rounded-full bg-blue-600"></div>
               </div>
 
+              {errorMessage && (
+                <div className="mt-6 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="mt-8 space-y-8">
                 {/* 1. Passport Upload Area */}
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6">
@@ -231,30 +306,29 @@ function DocumentContent() {
                     <h2 className="text-base font-bold text-slate-900">
                       1. Passport Information Page Copy *
                     </h2>
-                    {passportFile && (
+                    {passportDoc && (
                       <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                        <Check className="h-3.5 w-3.5" /> Uploaded
+                        <Check className="h-3.5 w-3.5" /> Attached
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mb-4">
-                    Must clearly show your photo, full name, passport number, issue and expiry dates. Format: PDF, JPG, PNG (Max 10MB).
+                    Must clearly show your photo, full name, passport number, issue and expiry dates.
                   </p>
 
-                  {passportFile ? (
+                  {passportDoc ? (
                     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white">
                       <div className="flex items-center gap-3">
                         <FileCheck2 className="h-6 w-6 text-blue-600" />
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{passportFile.name}</p>
-                          <p className="text-xs text-slate-400">{passportFile.size}</p>
+                          <p className="text-sm font-semibold text-slate-800">{passportDoc.fileName}</p>
+                          <p className="text-xs text-slate-400">{passportDoc.fileSize}</p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPassportFile(null)}
+                        onClick={() => setPassportDoc(null)}
                         className="text-xs text-slate-400 hover:text-rose-600 p-1"
-                        aria-label="Remove uploaded passport"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -262,12 +336,12 @@ function DocumentContent() {
                   ) : (
                     <label className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-slate-300 bg-white hover:border-blue-500 cursor-pointer transition-colors text-center">
                       <UploadCloud className="h-8 w-8 text-blue-600 mb-2" />
-                      <span className="text-sm font-semibold text-slate-700">Click to select passport file</span>
-                      <span className="text-xs text-slate-400 mt-0.5">PDF or High-resolution Image</span>
+                      <span className="text-sm font-semibold text-slate-700">Click to upload passport file</span>
+                      <span className="text-xs text-slate-400 mt-0.5">PDF, JPG, or PNG (stored in Neon DB)</span>
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e, "passport")}
+                        onChange={(e) => handleFileChange(e, "passport")}
                         className="hidden"
                       />
                     </label>
@@ -278,32 +352,31 @@ function DocumentContent() {
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6">
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-base font-bold text-slate-900">
-                      2. Recent Passport-Style Photograph *
+                      2. Passport-Style Photograph *
                     </h2>
-                    {photoFile && (
+                    {photoDoc && (
                       <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                        <Check className="h-3.5 w-3.5" /> Uploaded
+                        <Check className="h-3.5 w-3.5" /> Attached
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mb-4">
-                    Color photograph taken against a white background, neutral expression without headgear. Format: JPG, PNG.
+                    Color photograph taken against a light background with neutral expression.
                   </p>
 
-                  {photoFile ? (
+                  {photoDoc ? (
                     <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white">
                       <div className="flex items-center gap-3">
                         <FileCheck2 className="h-6 w-6 text-blue-600" />
                         <div>
-                          <p className="text-sm font-semibold text-slate-800">{photoFile.name}</p>
-                          <p className="text-xs text-slate-400">{photoFile.size}</p>
+                          <p className="text-sm font-semibold text-slate-800">{photoDoc.fileName}</p>
+                          <p className="text-xs text-slate-400">{photoDoc.fileSize}</p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setPhotoFile(null)}
+                        onClick={() => setPhotoDoc(null)}
                         className="text-xs text-slate-400 hover:text-rose-600 p-1"
-                        aria-label="Remove uploaded photo"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -311,12 +384,12 @@ function DocumentContent() {
                   ) : (
                     <label className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-slate-300 bg-white hover:border-blue-500 cursor-pointer transition-colors text-center">
                       <UploadCloud className="h-8 w-8 text-blue-600 mb-2" />
-                      <span className="text-sm font-semibold text-slate-700">Click to select passport photo</span>
-                      <span className="text-xs text-slate-400 mt-0.5">JPG or PNG</span>
+                      <span className="text-sm font-semibold text-slate-700">Click to upload passport photo</span>
+                      <span className="text-xs text-slate-400 mt-0.5">JPG or PNG image</span>
                       <input
                         type="file"
                         accept=".jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e, "photo")}
+                        onChange={(e) => handleFileChange(e, "photo")}
                         className="hidden"
                       />
                     </label>
@@ -327,13 +400,13 @@ function DocumentContent() {
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6">
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-base font-bold text-slate-900">
-                      3. Supporting Documents (Optional / Recommended)
+                      3. Supporting Documents (Optional)
                     </h2>
-                    <span className="text-xs text-slate-400 font-medium">Bank statements, itinerary, flight reservation</span>
+                    <span className="text-xs text-slate-400 font-medium">Bank statements, return flight ticket</span>
                   </div>
 
                   <div className="space-y-3 mt-4">
-                    {supportingFiles.map((file, idx) => (
+                    {supportingDocs.map((file, idx) => (
                       <div
                         key={idx}
                         className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-white"
@@ -341,13 +414,13 @@ function DocumentContent() {
                         <div className="flex items-center gap-3">
                           <FileText className="h-5 w-5 text-slate-500" />
                           <div>
-                            <p className="text-sm font-semibold text-slate-800">{file.name}</p>
-                            <p className="text-xs text-slate-400">{file.size}</p>
+                            <p className="text-sm font-semibold text-slate-800">{file.fileName}</p>
+                            <p className="text-xs text-slate-400">{file.fileSize}</p>
                           </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setSupportingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                          onClick={() => setSupportingDocs((prev) => prev.filter((_, i) => i !== idx))}
                           className="text-xs text-slate-400 hover:text-rose-600 p-1"
                         >
                           <X className="h-4 w-4" />
@@ -357,11 +430,11 @@ function DocumentContent() {
 
                     <label className="flex items-center justify-center gap-2 p-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 cursor-pointer transition-colors text-xs font-semibold text-slate-700">
                       <UploadCloud className="h-4 w-4 text-blue-600" />
-                      <span>Add another supporting document</span>
+                      <span>Attach additional document</span>
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e, "supporting")}
+                        onChange={(e) => handleFileChange(e, "supporting")}
                         className="hidden"
                       />
                     </label>
@@ -377,37 +450,35 @@ function DocumentContent() {
                   <div className="space-y-3 text-xs sm:text-sm">
                     <div className="flex justify-between py-2 border-b border-slate-100">
                       <span className="text-slate-500">Applicant:</span>
-                      <span className="font-semibold text-slate-900">{applicantName}</span>
+                      <span className="font-semibold text-slate-900">{draft.fullName}</span>
                     </div>
 
                     <div className="flex justify-between py-2 border-b border-slate-100">
                       <span className="text-slate-500">Destination & Visa:</span>
-                      <span className="font-semibold text-slate-900">{country} — {visaType}</span>
+                      <span className="font-semibold text-slate-900">{draft.destination} — {draft.visaType}</span>
                     </div>
 
                     <div className="flex justify-between py-2 border-b border-slate-100">
-                      <span className="text-slate-500">Documents Attached:</span>
-                      <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                        <Check className="h-4 w-4" /> Ready for verification
-                      </span>
+                      <span className="text-slate-500">Passport Number:</span>
+                      <span className="font-semibold text-slate-900">{draft.passportNumber}</span>
+                    </div>
+
+                    <div className="flex justify-between py-2 border-b border-slate-100">
+                      <span className="text-slate-500">Travel Window:</span>
+                      <span className="font-semibold text-slate-900">{draft.departureDate} to {draft.returnDate}</span>
                     </div>
 
                     <div className="flex justify-between py-2">
-                      <span className="text-slate-500">Estimated Turnaround:</span>
-                      <span className="font-semibold text-slate-900">3 to 5 business days</span>
+                      <span className="text-slate-500">Database Destination:</span>
+                      <span className="font-semibold text-emerald-700">Neon PostgreSQL (Branch: production)</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Disclaimer */}
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  By clicking Submit Application, you certify that all information submitted is true and accurate according to your original passport and official documentation.
-                </p>
-
                 {/* Action Buttons */}
                 <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
                   <Link
-                    href={`/travel?country=${encodeURIComponent(country)}&visaType=${encodeURIComponent(visaType)}&name=${encodeURIComponent(applicantName)}`}
+                    href={`/travel?country=${encodeURIComponent(draft.destination)}&visaType=${encodeURIComponent(draft.visaType)}`}
                     className="flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors btn-press"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -416,11 +487,11 @@ function DocumentContent() {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting || !passportFile || !photoFile}
-                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all btn-press"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50 transition-all btn-press"
                   >
                     {isSubmitting ? (
-                      <span>Transmitting Application...</span>
+                      <span>Saving to Neon Database...</span>
                     ) : (
                       <>
                         <span>Submit Application</span>

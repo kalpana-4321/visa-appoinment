@@ -15,7 +15,7 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -30,10 +30,27 @@ export default function Signup() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        setError(data.error || "Failed to create account.");
+      }
+    } catch {
+      setError("Network error connecting to Neon auth service.");
+    } finally {
       setIsLoading(false);
-      router.push("/apply");
-    }, 600);
+    }
   };
 
   return (

@@ -17,11 +17,12 @@ export async function GET(request: NextRequest) {
 
     // Query Neon PostgreSQL
     const rows = await sql`
-      SELECT id, reference_id, full_name, email, destination, visa_type,
+      SELECT id, reference_id, full_name, email, phone, destination, visa_type,
              departure_date, return_date, status, created_at
       FROM visa_applications
       WHERE UPPER(reference_id) = UPPER(${trimmedRef})
          OR LOWER(email) = LOWER(${trimmedRef})
+      ORDER BY id DESC
       LIMIT 1;
     `;
 
@@ -32,9 +33,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const application = rows[0];
+
+    // Query attached documents
+    const documents = await sql`
+      SELECT id, document_type, file_name, file_size, mime_type, created_at
+      FROM application_documents
+      WHERE reference_id = ${application.reference_id}
+      ORDER BY id ASC;
+    `;
+
     return NextResponse.json({
       success: true,
-      application: rows[0],
+      application,
+      documents,
     });
   } catch (error: any) {
     console.error("Track query failed:", error);
