@@ -27,11 +27,11 @@ function ApplicationContent() {
 
   // Form states
   const [formData, setFormData] = useState({
-    fullName: "Kaladevi Rishidev",
-    email: "kaladevi@example.com",
+    fullName: "John Doe",
+    email: "john@example.com",
     phone: "+977 9800000000",
     dob: "1998-05-14",
-    gender: "Female",
+    gender: "Male",
     passportNumber: "N12345678",
     nationality: "Nepali",
     passportType: "Ordinary",
