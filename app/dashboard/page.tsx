@@ -177,7 +177,7 @@ export default function Dashboard() {
       <Footer />
 
       {trackRef && (
-        <TrackModal isOpen={!!trackRef} onClose={() => setTrackRef(null)} />
+        <TrackModal isOpen={!!trackRef} onClose={() => setTrackRef(null)} initialRef={trackRef} />
       )}
     </div>
   );

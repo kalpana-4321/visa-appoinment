@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
+import { uploadToStorage, BUCKET_NAME } from "@/lib/storage";
 
 // GET /api/upload?referenceId=GP-XXXXX - Retrieve documents for an application
 export async function GET(request: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await sql`
-      SELECT id, reference_id, document_type, file_name, file_size, mime_type, created_at
+      SELECT id, reference_id, document_type, file_name, file_size, mime_type, storage_key, storage_url, created_at
       FROM application_documents
       WHERE UPPER(reference_id) = UPPER(${ref.trim()})
       ORDER BY id ASC;
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      bucket: BUCKET_NAME,
       documents: rows,
     });
   } catch (err: any) {
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/upload - Handle file upload (Passport, Photo, Supporting docs)
+// POST /api/upload - Handle file upload (Passport, Photo, Supporting docs) directly to Neon S3 Storage Bucket
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -57,27 +59,37 @@ export async function POST(request: NextRequest) {
       ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
       : `${sizeInKb} KB`;
 
-    // Convert to data URI for secure inline persistence in Neon Postgres
-    const base64Data = `data:${file.type || "application/octet-stream"};base64,${buffer.toString("base64")}`;
+    // Safe sanitized filename and key
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storageKey = `applications/${referenceId}/${documentType}-${Date.now()}-${sanitizedName}`;
+    const mimeType = file.type || "application/octet-stream";
+
+    // Upload directly to Neon S3 Storage Bucket
+    const { url: storageUrl } = await uploadToStorage({
+      key: storageKey,
+      body: buffer,
+      contentType: mimeType,
+    });
 
     const rows = await sql`
       INSERT INTO application_documents (
-        reference_id, document_type, file_name, file_size, mime_type, file_data
+        reference_id, document_type, file_name, file_size, mime_type, storage_key, storage_url
       )
       VALUES (
-        ${referenceId}, ${documentType}, ${file.name}, ${sizeFormatted}, ${file.type || "application/octet-stream"}, ${base64Data}
+        ${referenceId}, ${documentType}, ${file.name}, ${sizeFormatted}, ${mimeType}, ${storageKey}, ${storageUrl}
       )
-      RETURNING id, reference_id, document_type, file_name, file_size, mime_type, created_at;
+      RETURNING id, reference_id, document_type, file_name, file_size, mime_type, storage_key, storage_url, created_at;
     `;
 
     return NextResponse.json({
       success: true,
+      bucket: BUCKET_NAME,
       document: rows[0],
     });
   } catch (err: any) {
     console.error("Upload error:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Failed to upload document." },
+      { success: false, error: err.message || "Failed to upload document to storage." },
       { status: 500 }
     );
   }

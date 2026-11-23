@@ -6,6 +6,7 @@ import { X, Search, CheckCircle2, Clock, FileText, AlertCircle } from "lucide-re
 interface TrackModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialRef?: string;
 }
 
 interface ApplicationData {
@@ -17,11 +18,52 @@ interface ApplicationData {
   created_at: string;
 }
 
-export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
-  const [refId, setRefId] = useState("");
+interface DocumentData {
+  id: number;
+  document_type: string;
+  file_name: string;
+  file_size: string;
+  storage_url?: string;
+}
+
+export default function TrackModal({ isOpen, onClose, initialRef }: TrackModalProps) {
+  const [refId, setRefId] = useState(initialRef || "");
   const [loading, setLoading] = useState(false);
   const [application, setApplication] = useState<ApplicationData | null>(null);
+  const [documents, setDocuments] = useState<DocumentData[]>([]);
   const [error, setError] = useState("");
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setApplication(null);
+    setDocuments([]);
+
+    try {
+      const res = await fetch(`/api/track?ref=${encodeURIComponent(query.trim())}`);
+      const data = await res.json();
+
+      if (data.success && data.application) {
+        setApplication(data.application);
+        setDocuments(data.documents || []);
+      } else {
+        setError(data.error || "Application not found. Try searching for sample 'GP-84920'.");
+      }
+    } catch {
+      setError("Network error connecting to Neon database. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && initialRef) {
+      setRefId(initialRef);
+      performSearch(initialRef);
+    }
+  }, [isOpen, initialRef]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,26 +81,7 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!refId.trim()) return;
-
-    setLoading(true);
-    setError("");
-    setApplication(null);
-
-    try {
-      const res = await fetch(`/api/track?ref=${encodeURIComponent(refId.trim())}`);
-      const data = await res.json();
-
-      if (data.success && data.application) {
-        setApplication(data.application);
-      } else {
-        setError(data.error || "Application not found. Try searching for sample 'GP-84920'.");
-      }
-    } catch (err: any) {
-      setError("Network error connecting to Neon database. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    await performSearch(refId);
   };
 
   if (!isOpen) return null;
@@ -179,6 +202,40 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
                 </div>
               </div>
             </div>
+
+            {documents.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2">
+                  Uploaded Documents ({documents.length})
+                </p>
+                <div className="space-y-1.5">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-slate-50 text-xs text-slate-700"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                        <span className="truncate font-medium">{doc.file_name}</span>
+                        <span className="text-slate-400">({doc.file_size})</span>
+                      </div>
+                      {doc.storage_url ? (
+                        <a
+                          href={doc.storage_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 font-medium shrink-0 ml-2"
+                        >
+                          View File
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 shrink-0 ml-2">Stored</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

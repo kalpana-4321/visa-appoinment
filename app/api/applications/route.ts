@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { uploadToStorage } from "@/lib/storage";
 
 // GET /api/applications - Query applications
 export async function GET(request: NextRequest) {
@@ -97,17 +98,42 @@ export async function POST(request: NextRequest) {
 
     const createdApp = rows[0];
 
-    // If documents were provided in submission payload, persist them into application_documents
+    // If documents were provided in submission payload, persist them into application_documents and S3
     if (Array.isArray(documents) && documents.length > 0) {
       for (const doc of documents) {
         if (doc.fileName && doc.fileData) {
+          let storageKey: string | null = null;
+          let storageUrl: string | null = null;
+
+          try {
+            // Upload to Neon Object Storage bucket
+            const match = doc.fileData.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              const contentType = match[1];
+              const fileBuffer = Buffer.from(match[2], "base64");
+              const sanitizedName = doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+              const key = `applications/${referenceId}/${doc.documentType || "doc"}-${Date.now()}-${sanitizedName}`;
+
+              const uploadRes = await uploadToStorage({
+                key,
+                body: fileBuffer,
+                contentType,
+              });
+              storageKey = uploadRes.key;
+              storageUrl = uploadRes.url;
+            }
+          } catch (storageErr) {
+            console.warn("Storage bucket upload warning:", storageErr);
+          }
+
           await sql`
             INSERT INTO application_documents (
-              reference_id, document_type, file_name, file_size, mime_type, file_data
+              reference_id, document_type, file_name, file_size, mime_type, storage_key, storage_url, file_data
             )
             VALUES (
               ${referenceId}, ${doc.documentType || "supporting"}, ${doc.fileName},
-              ${doc.fileSize || "Unknown"}, ${doc.mimeType || "application/octet-stream"}, ${doc.fileData}
+              ${doc.fileSize || "Unknown"}, ${doc.mimeType || "application/octet-stream"},
+              ${storageKey}, ${storageUrl}, ${doc.fileData}
             );
           `;
         }

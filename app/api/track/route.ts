@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Query attached documents
     const documents = await sql`
-      SELECT id, document_type, file_name, file_size, mime_type, created_at
+      SELECT id, document_type, file_name, file_size, mime_type, storage_key, storage_url, created_at
       FROM application_documents
       WHERE reference_id = ${application.reference_id}
       ORDER BY id ASC;

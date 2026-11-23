@@ -28,8 +28,8 @@ function ApplicationContent() {
     email: "",
     phone: "",
     dob: "1998-05-14",
-    gender: "Female",
-    passportNumber: "N12345678",
+    gender: "Male",
+    passportNumber: "",
     nationality: "Nepali",
     passportType: "Ordinary",
     issueDate: "2022-01-10",
@@ -169,7 +169,7 @@ function ApplicationContent() {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
-                      placeholder="e.g. Kaladevi Rishidev"
+                      placeholder="e.g. John Doe"
                       className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-800 outline-none transition-all ${
                         errors.fullName ? "border-rose-500 ring-2 ring-rose-100" : "border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                       }`}
