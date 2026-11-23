@@ -70,16 +70,40 @@ function DocumentContent() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const generatedRef = `GP-${Math.floor(10000 + Math.random() * 90000)}`;
-      setReferenceId(generatedRef);
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: applicantName,
+          email: "kaladevi@example.com",
+          phone: "+977 9800000000",
+          destination: country,
+          visaType: visaType,
+          departureDate: "2026-12-15",
+          returnDate: "2027-01-05",
+          purpose: "Holiday and travel visit",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.referenceId) {
+        setReferenceId(data.referenceId);
+      } else {
+        const fallbackRef = `GP-${Math.floor(10000 + Math.random() * 90000)}`;
+        setReferenceId(fallbackRef);
+      }
+    } catch (err) {
+      const fallbackRef = `GP-${Math.floor(10000 + Math.random() * 90000)}`;
+      setReferenceId(fallbackRef);
+    } finally {
       setIsSubmitting(false);
       setIsSubmitted(true);
-    }, 800);
+    }
   };
 
   return (

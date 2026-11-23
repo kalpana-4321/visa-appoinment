@@ -1,17 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Search, CheckCircle2, Clock, FileText, ArrowRight } from "lucide-react";
+import { X, Search, CheckCircle2, Clock, FileText, AlertCircle } from "lucide-react";
 
 interface TrackModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface ApplicationData {
+  reference_id: string;
+  full_name: string;
+  destination: string;
+  visa_type: string;
+  status: string;
+  created_at: string;
+}
+
 export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
   const [refId, setRefId] = useState("");
-  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [application, setApplication] = useState<ApplicationData | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,14 +37,28 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
     };
   }, [isOpen, onClose]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!refId.trim()) return;
+
     setLoading(true);
-    setTimeout(() => {
+    setError("");
+    setApplication(null);
+
+    try {
+      const res = await fetch(`/api/track?ref=${encodeURIComponent(refId.trim())}`);
+      const data = await res.json();
+
+      if (data.success && data.application) {
+        setApplication(data.application);
+      } else {
+        setError(data.error || "Application not found. Try searching for sample 'GP-84920'.");
+      }
+    } catch (err: any) {
+      setError("Network error connecting to Neon database. Please try again.");
+    } finally {
       setLoading(false);
-      setSearched(true);
-    }, 450);
+    }
   };
 
   if (!isOpen) return null;
@@ -63,7 +87,7 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
           Track Your Application
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Enter your GlobePass Application Reference ID to check live status.
+          Enter your GlobePass Application Reference ID (e.g. <span className="font-mono text-slate-700">GP-84920</span>) to check live status from Neon DB.
         </p>
 
         <form onSubmit={handleSearch} className="mt-5">
@@ -84,12 +108,19 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
               disabled={loading}
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors btn-press flex items-center gap-1.5"
             >
-              {loading ? "Searching..." : "Track"}
+              {loading ? "Checking..." : "Track"}
             </button>
           </div>
         </form>
 
-        {searched && (
+        {error && (
+          <div className="mt-4 flex items-center gap-2 p-3 rounded-xl border border-rose-200 bg-rose-50 text-xs text-rose-700">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {application && (
           <div className="mt-6 border-t border-slate-100 pt-5 space-y-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <div>
@@ -97,17 +128,23 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
                   Application Reference
                 </p>
                 <p className="font-mono text-sm font-bold text-slate-800">
-                  {refId.toUpperCase().includes("GP") ? refId.toUpperCase() : `GP-${refId.slice(0, 5).toUpperCase() || "72941"}`}
+                  {application.reference_id}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-                  Status
+                  Live Status
                 </p>
                 <p className="text-sm font-semibold text-blue-600">
-                  In Processing
+                  {application.status}
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 text-xs text-slate-700 space-y-1">
+              <p>Applicant: <span className="font-semibold text-slate-900">{application.full_name}</span></p>
+              <p>Destination: <span className="font-semibold text-slate-900">{application.destination}</span> — {application.visa_type}</p>
+              <p>Submitted: <span className="font-semibold text-slate-900">{new Date(application.created_at).toLocaleDateString()}</span></p>
             </div>
 
             {/* Timeline */}
@@ -116,9 +153,9 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-slate-800">
-                    Application Submitted & Verified
+                    Application Logged in Neon Postgres
                   </p>
-                  <p className="text-xs text-slate-500">Nov 22, 2026 — 10:30 AM</p>
+                  <p className="text-xs text-slate-500">Record verified in database</p>
                 </div>
               </div>
 
@@ -128,7 +165,7 @@ export default function TrackModal({ isOpen, onClose }: TrackModalProps) {
                   <p className="text-sm font-semibold text-slate-800">
                     Embassy Verification & Document Review
                   </p>
-                  <p className="text-xs text-slate-500">Currently in progress • Est. completion 48 hrs</p>
+                  <p className="text-xs text-slate-500">{application.status} • Est. completion 48 hrs</p>
                 </div>
               </div>
 
