@@ -1,294 +1,280 @@
-
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-
-import { CiGlobe } from "react-icons/ci";
-import { RiNotification2Line } from "react-icons/ri";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import {
-  FaRegUserCircle,
-  FaPlane,
-  FaBusinessTime,
-  FaGraduationCap,
-  FaLongArrowAltRight,
-} from "react-icons/fa";
+  Plane,
+  Briefcase,
+  GraduationCap,
+  Clock,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Shield,
+  FileText,
+} from "lucide-react";
 
-export default function Home() {
+const countryList = [
+  { name: "Australia", image: "/coralhouse.png", time: "3–5 days" },
+  { name: "Japan", image: "/japanhouse.png", time: "4–6 days" },
+  { name: "United Kingdom", image: "/ukhouse.png", time: "3–5 days" },
+  { name: "United States", image: "/usastatus.png", time: "2–4 days" },
+  { name: "France", image: "/france.png", time: "3–5 days" },
+  { name: "Dubai", image: "/dubai.png", time: "24–48 hrs" },
+];
+
+const visaTypes = [
+  {
+    id: "Tourist Visa",
+    name: "Tourist Visa",
+    icon: Plane,
+    desc: "For holidays, vacations, sightseeing, and visiting friends or family.",
+    details: "Valid for up to 90 days of continuous travel",
+  },
+  {
+    id: "Business Visa",
+    name: "Business Visa",
+    icon: Briefcase,
+    desc: "For corporate conferences, trade meetings, partner contracts, and investor trips.",
+    details: "Single or multiple entry options available",
+  },
+  {
+    id: "Student Visa",
+    name: "Student Visa",
+    icon: GraduationCap,
+    desc: "For university enrollment, language schools, and recognized academic programs.",
+    details: "Valid for entire duration of academic course",
+  },
+  {
+    id: "Transit Visa",
+    name: "Transit Visa",
+    icon: Clock,
+    desc: "For airport layovers and short stopovers while traveling to a third country.",
+    details: "Valid for up to 72 hours transit period",
+  },
+];
+
+function ApplyContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [selectedVisa, setSelectedVisa] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [selectedVisa, setSelectedVisa] = useState<string>("");
 
-  const countries = [
-    { name: "Australia", image: "/coralhouse.png" },
-    { name: "Japan", image: "/japanhouse.png" },
-    { name: "United Kingdom", image: "/ukhouse.png" },
-    { name: "United States", image: "/usastatus.png" },
-  ];
+  useEffect(() => {
+    const countryParam = searchParams.get("country");
+    const visaParam = searchParams.get("visaType");
+
+    if (countryParam) setSelectedCountry(countryParam);
+    if (visaParam) setSelectedVisa(visaParam);
+  }, [searchParams]);
+
+  // Compute progress
+  let progress = 10;
+  if (selectedCountry) progress += 45;
+  if (selectedVisa) progress += 45;
 
   const handleContinue = () => {
-    if (!selectedCountry || !selectedVisa) {
-      return;
-    }
-
+    if (!selectedCountry || !selectedVisa) return;
     router.push(
       `/application?country=${encodeURIComponent(selectedCountry)}&visaType=${encodeURIComponent(selectedVisa)}`
     );
   };
 
   return (
-    <div className="min-h-screen bg-[#E8DCC8] p-5 pb-[500px]">
-      <div className="mx-auto min-h-[1800px] w-full max-w-[1440px] rounded-3xl bg-white px-5 py-6 shadow-sm sm:px-8 lg:px-10">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Navbar />
 
-        {/* Navbar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CiGlobe className="text-3xl text-blue-600" />
-            <h1 className="text-2xl font-bold">
-              globe<span className="text-blue-600">Pass</span>
-            </h1>
-          </div>
+      <main className="flex-1 py-10 sm:py-14">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          {/* Breadcrumbs */}
+          <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-slate-500">
+            <Link href="/" className="hover:text-blue-600 transition-colors">
+              Home
+            </Link>
+            <ChevronRight className="h-3 w-3 text-slate-400" />
+            <span className="font-semibold text-slate-800">Start Application</span>
+          </nav>
 
-          <div className="flex items-center gap-3">
-            <RiNotification2Line className="text-2xl text-gray-700" />
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-              <FaRegUserCircle className="text-2xl text-blue-400" />
-            </div>
-          </div>
-        </div>
-
-       
-        <div className="mt-5 h-px w-full bg-gray-200"></div>
-
-        
-        <div className="mt-7 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-sm font-semibold tracking-wider text-gray-500">
-              APPLICATION PORTAL
-            </h1>
-
-            <p className="mt-2 text-3xl font-bold text-black">
-              Let's get started!
-            </p>
-
-            <p className="mt-2 text-gray-400">
-              Your journey begins with a few simple steps.
-            </p>
-          </div>
-
-          
-          <div className="flex h-30 w-30 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-            <img
-              src="/passport-1.png"
-              alt="Passport"
-              className="h-28 w-28 object-contain"
-            />
-          </div>
-        </div>
-
-        
-        <div className="mt-8 rounded-2xl border border-gray-200 bg-gray-50 p-6">
-          <div className="flex items-center justify-between">
-            <p className="text-base font-semibold text-gray-800">
-              Your application progress
-            </p>
-
-            <span className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-bold text-cyan-600">
-              0%
-            </span>
-          </div>
-
-          <div className="mt-4 h-2 w-full rounded-full bg-gray-200">
-            <div className="h-full w-0 rounded-full bg-cyan-500"></div>
-          </div>
-
-          <p className="mt-3 text-sm text-gray-500">
-            Complete each step to submit your application.
-          </p>
-        </div>
-
-       
-        <div className="mt-10">
-          <p className="text-2xl font-bold text-blue-600">
-            Choose your destination
-          </p>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Where would you like to travel?
-          </p>
-        </div>
-
-        
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          {countries.map((country) => (
-            <button
-              type="button"
-              key={country.name}
-              onClick={() => setSelectedCountry(country.name)}
-              className={`group relative h-64 overflow-hidden rounded-2xl text-left transition sm:h-72 ${
-                selectedCountry === country.name
-                  ? "border-4 border-blue-600 ring-2 ring-blue-200"
-                  : "border-4 border-transparent hover:border-blue-300"
-              }`}
-            >
-              <img
-                src={country.image}
-                alt={country.name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-
-              <div className="absolute inset-0 flex items-end justify-end p-5">
-                <p className="rounded-lg bg-white/80 px-4 py-2 text-xl font-bold text-black">
-                  {country.name}
+          {/* Header Card */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase font-bold tracking-widest text-blue-600">
+                  Step 1: Select Visa & Destination
+                </p>
+                <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold text-slate-900">
+                  Where would you like to travel?
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">
+                  Choose your destination country and preferred visa category to begin.
                 </p>
               </div>
 
-              {selectedCountry === country.name && (
-                <span className="absolute left-4 top-4 rounded-full bg-blue-600 px-3 py-1 text-sm font-semibold text-white">
-                  Selected
-                </span>
-              )}
-            </button>
-          ))}
+              {/* Progress Indicator - Clean, NO BADGES */}
+              <div className="w-full sm:w-48 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="flex justify-between text-xs text-slate-600 mb-1.5">
+                  <span className="font-medium">Setup Progress</span>
+                  <span className="font-bold text-blue-600">{progress}%</span>
+                </div>
+                <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Step 1: Destination Selection */}
+            <div className="mt-10">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-base font-bold text-slate-900">
+                  1. Select Destination Country
+                </h2>
+                {selectedCountry && (
+                  <span className="text-xs font-semibold text-blue-600">
+                    Selected: {selectedCountry}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {countryList.map((country) => {
+                  const isSelected = selectedCountry === country.name;
+                  return (
+                    <button
+                      type="button"
+                      key={country.name}
+                      onClick={() => setSelectedCountry(country.name)}
+                      className={`group relative overflow-hidden rounded-xl text-left border-2 transition-all p-3 flex flex-col justify-between ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/20 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="h-32 w-full rounded-lg overflow-hidden bg-slate-100 relative">
+                        <img
+                          src={country.image}
+                          alt={country.name}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                            <Check className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3">
+                        <p className={`font-bold text-sm ${isSelected ? "text-blue-600" : "text-slate-900"}`}>
+                          {country.name}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">Est. {country.time}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 2: Visa Category Selection */}
+            <div className="mt-12">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-base font-bold text-slate-900">
+                  2. Select Visa Category
+                </h2>
+                {selectedVisa && (
+                  <span className="text-xs font-semibold text-blue-600">
+                    Selected: {selectedVisa}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {visaTypes.map((visa) => {
+                  const Icon = visa.icon;
+                  const isSelected = selectedVisa === visa.id;
+                  return (
+                    <button
+                      type="button"
+                      key={visa.id}
+                      onClick={() => setSelectedVisa(visa.id)}
+                      className={`flex items-start gap-4 p-5 rounded-xl border-2 text-left transition-all ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/20 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                          isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className={`font-bold text-sm ${isSelected ? "text-blue-600" : "text-slate-900"}`}>
+                            {visa.name}
+                          </h3>
+                          {isSelected && <Check className="h-4 w-4 text-blue-600" />}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                          {visa.desc}
+                        </p>
+                        <p className="mt-2 text-xs font-medium text-slate-500">
+                          {visa.details}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selection Summary and Continue Button */}
+            <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                {selectedCountry && selectedVisa ? (
+                  <p className="text-sm text-slate-700">
+                    Applying for: <span className="font-bold text-slate-900">{selectedCountry}</span> —{" "}
+                    <span className="font-bold text-blue-600">{selectedVisa}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Please select both a destination country and a visa category to continue.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={!selectedCountry || !selectedVisa}
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all btn-press"
+              >
+                <span>Continue to Personal Details</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
+      </main>
 
-        
-        <div className="mt-7 h-px w-full bg-gray-300"></div>
-
-        
-        <div className="mt-7 rounded-2xl px-7 py-3">
-          <h1 className="text-2xl font-bold text-black">
-            Select your visa types
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Choose the visa type that matches your travel purpose.
-          </p>
-        </div>
-
-       
-        <button
-          type="button"
-          onClick={() => setSelectedVisa("Tourist Visa")}
-          className={`mt-4 flex w-full items-center justify-start gap-5 rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
-            selectedVisa === "Tourist Visa"
-              ? "border-blue-600 ring-2 ring-blue-100"
-              : "border-gray-200 hover:border-blue-300"
-          }`}
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50">
-            <FaPlane className="text-2xl text-gray-500" />
-          </div>
-
-          <div>
-            <p className="text-lg font-semibold text-black">
-              Tourist Visa
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              For holidays and visiting family
-            </p>
-          </div>
-
-          {selectedVisa === "Tourist Visa" && (
-            <span className="ml-auto text-sm font-semibold text-blue-600">
-              Selected
-            </span>
-          )}
-        </button>
-
-       
-        <button
-          type="button"
-          onClick={() => setSelectedVisa("Business Visa")}
-          className={`mt-4 flex w-full items-center justify-start gap-5 rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
-            selectedVisa === "Business Visa"
-              ? "border-blue-600 ring-2 ring-blue-100"
-              : "border-gray-200 hover:border-blue-300"
-          }`}
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50">
-            <FaBusinessTime className="text-2xl text-gray-500" />
-          </div>
-
-          <div>
-            <p className="text-lg font-semibold text-black">
-              Business Visa
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              For business trips and meetings
-            </p>
-          </div>
-
-          {selectedVisa === "Business Visa" && (
-            <span className="ml-auto text-sm font-semibold text-blue-600">
-              Selected
-            </span>
-          )}
-        </button>
-
-       
-        <button
-          type="button"
-          onClick={() => setSelectedVisa("Student Visa")}
-          className={`mt-4 flex w-full items-center justify-start gap-5 rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
-            selectedVisa === "Student Visa"
-              ? "border-blue-600 ring-2 ring-blue-100"
-              : "border-gray-200 hover:border-blue-300"
-          }`}
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50">
-            <FaGraduationCap className="text-2xl text-gray-500" />
-          </div>
-
-          <div>
-            <p className="text-lg font-semibold text-black">
-              Student Visa
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              For education and study abroad
-            </p>
-          </div>
-
-          {selectedVisa === "Student Visa" && (
-            <span className="ml-auto text-sm font-semibold text-blue-600">
-              Selected
-            </span>
-          )}
-        </button>
-
-        
-        <div className="mt-5 text-center text-sm text-gray-500">
-          {selectedCountry && selectedVisa ? (
-            <p>
-              Selected: <span className="font-semibold text-blue-600">{selectedCountry}</span>
-              {" — "}
-              <span className="font-semibold text-blue-600">{selectedVisa}</span>
-            </p>
-          ) : (
-            <p>Please select a country and visa type to continue.</p>
-          )}
-        </div>
-
-       
-        <button
-          type="button"
-          onClick={handleContinue}
-          disabled={!selectedCountry || !selectedVisa}
-          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 p-5 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-        >
-          <span className="text-lg font-semibold">
-            Continue Application
-          </span>
-
-          <FaLongArrowAltRight className="text-xl" />
-        </button>
-
-        <p className="mt-4 text-center">
-          © 2026 GlobePass. Secure, Simple & Trusted.
-        </p>
-      </div>
+      <Footer />
     </div>
+  );
+}
+
+export default function ApplyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <ApplyContent />
+    </Suspense>
   );
 }
